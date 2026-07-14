@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PORT-SCAN | Network Reconnaissance Tool</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+    </style>
+<base target="_blank">
+</head>
+<body class="bg-slate-950 text-slate-200 min-h-screen">
+    <div class="min-h-screen bg-slate-950 text-slate-200 p-6 font-sans">
+        <header class="mb-8 text-center">
+            <h1 class="text-4xl font-bold text-cyan-400 tracking-tight">PORT-SCAN</h1>
+            <p class="text-slate-500 text-sm mt-2">Network Reconnaissance & Service Detection Tool</p>
+        </header>
+
+        <div class="max-w-4xl mx-auto space-y-6">
+            <!-- Target Input -->
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-6">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                    <div>
+                        <label class="text-xs text-slate-500 uppercase tracking-wider mb-1 block">Target IP / Host</label>
+                        <input type="text" id="target-input" value="192.168.1.1" 
+                            class="w-full bg-slate-950 border border-slate-700 rounded-lg px-4 py-2 text-sm text-slate-200 focus:border-cyan-500 focus:outline-none font-mono"
+                            placeholder="192.168.1.1">
+                    </div>
+                    <div>
+                        <label class="text-xs text-slate-500 uppercase tracking-wider mb-1 block">Port Range</label>
+                        <select id="port-range" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-4 py-2 text-sm text-slate-200 focus:border-cyan-500 focus:outline-none">
+                            <option value="common">Common Ports (1-1024)</option>
+                            <option value="web">Web Services (80,443,8080,3000)</option>
+                            <option value="remote">Remote Access (22,23,3389,5900)</option>
+                            <option value="database">Databases (3306,5432,1433,27017)</option>
+                            <option value="full">Full Range (1-65535)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-xs text-slate-500 uppercase tracking-wider mb-1 block">Scan Type</label>
+                        <select id="scan-type" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-4 py-2 text-sm text-slate-200 focus:border-cyan-500 focus:outline-none">
+                            <option value="syn">SYN Stealth Scan</option>
+                            <option value="connect">TCP Connect Scan</option>
+                            <option value="udp">UDP Scan</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="flex gap-3">
+                    <button onclick="startScan()" id="scan-btn" class="flex-1 bg-cyan-600 hover:bg-cyan-500 text-white py-2 rounded-lg text-sm font-semibold transition-colors">
+                        ▶ START SCAN
+                    </button>
+                    <button onclick="stopScan()" id="stop-scan-btn" class="bg-red-900/50 text-red-400 py-2 px-4 rounded-lg text-sm border border-red-800 opacity-50 cursor-not-allowed" disabled>
+                        ■ STOP
+                    </button>
+                </div>
+            </div>
+
+            <!-- Scan Progress -->
+            <div id="scan-progress" class="hidden bg-slate-900 border border-slate-800 rounded-xl p-6">
+                <div class="flex justify-between items-center mb-3">
+                    <span class="text-xs text-slate-500 uppercase tracking-wider">Scan Progress</span>
+                    <span id="progress-text" class="text-sm font-mono text-cyan-400">0%</span>
+                </div>
+                <div class="bg-slate-950 rounded-full h-3 overflow-hidden">
+                    <div id="progress-bar" class="h-full bg-cyan-500 rounded-full transition-all duration-300" style="width: 0%"></div>
+                </div>
+                <div class="flex justify-between mt-2 text-xs text-slate-500">
+                    <span id="ports-scanned">0 ports scanned</span>
+                    <span id="ports-open">0 open</span>
+                    <span id="ports-closed">0 closed</span>
+                    <span id="ports-filtered">0 filtered</span>
+                </div>
+            </div>
+
+            <!-- Results -->
+            <div id="results-panel" class="hidden space-y-6">
+                <!-- Summary Cards -->
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div class="bg-slate-900 border border-emerald-800 rounded-lg p-4 text-center">
+                        <div class="text-2xl font-bold text-emerald-400" id="summary-open">0</div>
+                        <div class="text-xs text-slate-500 mt-1">Open Ports</div>
+                    </div>
+                    <div class="bg-slate-900 border border-red-800 rounded-lg p-4 text-center">
+                        <div class="text-2xl font-bold text-red-400" id="summary-closed">0</div>
+                        <div class="text-xs text-slate-500 mt-1">Closed</div>
+                    </div>
+                    <div class="bg-slate-900 border border-amber-800 rounded-lg p-4 text-center">
+                        <div class="text-2xl font-bold text-amber-400" id="summary-filtered">0</div>
+                        <div class="text-xs text-slate-500 mt-1">Filtered</div>
+                    </div>
+                    <div class="bg-slate-900 border border-cyan-800 rounded-lg p-4 text-center">
+                        <div class="text-2xl font-bold text-cyan-400" id="summary-time">0s</div>
+                        <div class="text-xs text-slate-500 mt-1">Scan Time</div>
+                    </div>
+                </div>
+
+                <!-- Open Ports Table -->
+                <div class="bg-slate-900 border border-slate-800 rounded-lg overflow-hidden">
+                    <div class="p-4 border-b border-slate-800 flex items-center justify-between">
+                        <h3 class="text-sm font-semibold text-slate-300 uppercase tracking-wider">Open Ports & Services</h3>
+                        <span class="text-xs text-slate-500" id="open-count-badge">0 found</span>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead class="bg-slate-950 text-slate-500 text-xs uppercase">
+                                <tr>
+                                    <th class="text-left p-3">Port</th>
+                                    <th class="text-left p-3">Protocol</th>
+                                    <th class="text-left p-3">Service</th>
+                                    <th class="text-left p-3">Version</th>
+                                    <th class="text-center p-3">Risk</th>
+                                    <th class="text-left p-3">Banner</th>
+                                </tr>
+                            </thead>
+                            <tbody id="open-ports-table" class="divide-y divide-slate-800"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Port State Visualization -->
+                <div class="bg-slate-900 border border-slate-800 rounded-xl p-6">
+                    <h3 class="text-xs text-slate-500 uppercase tracking-wider mb-4">Port State Visualization</h3>
+                    <div id="port-grid" class="grid grid-cols-10 md:grid-cols-20 gap-1"></div>
+                    <div class="flex gap-4 mt-4 text-xs flex-wrap">
+                        <span class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-emerald-500"></span> Open</span>
+                        <span class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-red-500"></span> Closed</span>
+                        <span class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-amber-500"></span> Filtered</span>
+                        <span class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-slate-700"></span> Not Scanned</span>
+                    </div>
+                </div>
+
+                <!-- Service Fingerprint -->
+                <div class="bg-slate-900 border border-slate-800 rounded-xl p-6">
+                    <h3 class="text-xs text-slate-500 uppercase tracking-wider mb-4">Service Fingerprint</h3>
+                    <div id="fingerprint" class="font-mono text-xs text-slate-400 bg-slate-950 rounded p-4 space-y-1"></div>
+                </div>
+
+                <!-- Security Recommendations -->
+                <div class="bg-slate-900 border border-slate-800 rounded-xl p-6">
+                    <h3 class="text-xs text-slate-500 uppercase tracking-wider mb-3">Security Recommendations</h3>
+                    <ul id="port-recommendations" class="space-y-2 text-sm text-slate-400"></ul>
+                </div>
+            </div>
+        </div>
+
+        <footer class="text-center mt-12 text-xs text-slate-600 pb-6">
+            Educational tool for network reconnaissance • Simulated scanning environment
+        </footer>
+    </div>
+
+    <script>
+        const portDatabase = {
+            21: { service: 'FTP', protocol: 'TCP', risk: 'High', banner: '220 Welcome to FTP server', version: 'vsftpd 3.0.3' },
+            22: { service: 'SSH', protocol: 'TCP', risk: 'Medium', banner: 'SSH-2.0-OpenSSH_8.9', version: 'OpenSSH 8.9p1' },
+            23: { service: 'Telnet', protocol: 'TCP', risk: 'Critical', banner: 'Welcome to Telnet', version: 'Linux telnetd' },
+            25: { service: 'SMTP', protocol: 'TCP', risk: 'Medium', banner: '220 mail.example.com ESMTP', version: 'Postfix 3.6.4' },
+            53: { service: 'DNS', protocol: 'UDP', risk: 'Low', banner: 'DNS server ready', version: 'BIND 9.16.1' },
+            80: { service: 'HTTP', protocol: 'TCP', risk: 'Medium', banner: 'HTTP/1.1 200 OK', version: 'Apache/2.4.41' },
+            110: { service: 'POP3', protocol: 'TCP', risk: 'Medium', banner: '+OK POP3 server ready', version: 'Dovecot 2.3.7' },
+            143: { service: 'IMAP', protocol: 'TCP', risk: 'Medium', banner: '* OK IMAP4rev1 server ready', version: 'Dovecot 2.3.7' },
+            443: { service: 'HTTPS', protocol: 'TCP', risk: 'Low', banner: 'HTTP/1.1 200 OK', version: 'nginx/1.18.0' },
+            445: { service: 'SMB', protocol: 'TCP', risk: 'High', banner: 'SMB@NTLM', version: 'Samba 4.13.0' },
+            3306: { service: 'MySQL', protocol: 'TCP', risk: 'High', banner: '5.7.38-log', version: 'MySQL 5.7.38' },
+            3389: { service: 'RDP', protocol: 'TCP', risk: 'High', banner: 'RDP server', version: 'Windows RDP 10.0' },
+            5432: { service: 'PostgreSQL', protocol: 'TCP', risk: 'High', banner: 'PostgreSQL 13.4', version: 'PostgreSQL 13.4' },
+            5900: { service: 'VNC', protocol: 'TCP', risk: 'High', banner: 'RFB 003.008', version: 'TigerVNC 1.12.0' },
+            8080: { service: 'HTTP-Proxy', protocol: 'TCP', risk: 'Medium', banner: 'HTTP/1.1 200 OK', version: 'Apache Tomcat/9.0' },
+            27017: { service: 'MongoDB', protocol: 'TCP', risk: 'High', banner: 'MongoDB 5.0.2', version: 'MongoDB 5.0.2' },
+        };
+
+        const portRanges = {
+            common: [21, 22, 23, 25, 53, 80, 110, 143, 443, 445],
+            web: [80, 443, 8080, 3000, 8443],
+            remote: [22, 23, 3389, 5900, 5901],
+            database: [3306, 5432, 1433, 27017, 6379],
+            full: Array.from({length: 100}, (_, i) => i + 1)
+        };
+
+        let scanInterval = null;
+        let isScanning = false;
+        let scanResults = [];
+        let scanStartTime = null;
+        let currentPortIndex = 0;
+        let portsToScan = [];
+
+        function startScan() {
+            if (isScanning) return;
+            isScanning = true;
+            scanStartTime = Date.now();
+            currentPortIndex = 0;
+            scanResults = [];
+
+            const range = document.getElementById('port-range').value;
+            portsToScan = portRanges[range] || portRanges.common;
+
+            document.getElementById('scan-btn').classList.add('opacity-50', 'cursor-not-allowed');
+            document.getElementById('scan-btn').disabled = true;
+            document.getElementById('stop-scan-btn').classList.remove('opacity-50', 'cursor-not-allowed');
+            document.getElementById('stop-scan-btn').disabled = false;
+            document.getElementById('stop-scan-btn').classList.add('bg-red-600', 'hover:bg-red-500');
+
+            document.getElementById('scan-progress').classList.remove('hidden');
+            document.getElementById('results-panel').classList.add('hidden');
+
+            initPortGrid();
+
+            scanInterval = setInterval(() => {
+                if (currentPortIndex >= portsToScan.length) {
+                    finishScan();
+                    return;
+                }
+
+                const port = portsToScan[currentPortIndex];
+                const result = simulatePortScan(port);
+                scanResults.push(result);
+
+                updateProgress();
+                updatePortGrid(result);
+
+                if (result.state === 'open') {
+                    addOpenPortToTable(result);
+                }
+
+                currentPortIndex++;
+            }, 150);
+        }
+
+        function stopScan() {
+            isScanning = false;
+            clearInterval(scanInterval);
+
+            document.getElementById('scan-btn').classList.remove('opacity-50', 'cursor-not-allowed');
+            document.getElementById('scan-btn').disabled = false;
+            document.getElementById('stop-scan-btn').classList.add('opacity-50', 'cursor-not-allowed');
+            document.getElementById('stop-scan-btn').disabled = true;
+            document.getElementById('stop-scan-btn').classList.remove('bg-red-600', 'hover:bg-red-500');
+        }
+
+        function finishScan() {
+            stopScan();
+            document.getElementById('results-panel').classList.remove('hidden');
+            updateSummary();
+            updateFingerprint();
+            updateRecommendations();
+        }
+
+        function simulatePortScan(port) {
+            const info = portDatabase[port];
+            const rand = Math.random();
+
+            let state;
+            if (info) {
+                state = rand > 0.3 ? 'open' : (rand > 0.1 ? 'closed' : 'filtered');
+            } else {
+                state = rand > 0.9 ? 'open' : (rand > 0.3 ? 'closed' : 'filtered');
+            }
+
+            return {
+                port: port,
+                state: state,
+                protocol: info ? info.protocol : 'TCP',
+                service: info ? info.service : 'Unknown',
+                version: info ? info.version : '-',
+                banner: info ? info.banner : '-',
+                risk: info ? info.risk : 'Unknown',
+                responseTime: Math.floor(Math.random() * 50) + 10
+            };
+        }
+
+        function initPortGrid() {
+            const grid = document.getElementById('port-grid');
+            grid.innerHTML = '';
+
+            portsToScan.forEach(port => {
+                const cell = document.createElement('div');
+                cell.id = `port-cell-${port}`;
+                cell.className = 'h-6 rounded bg-slate-800 flex items-center justify-center text-xs text-slate-600 font-mono transition-all duration-300';
+                cell.textContent = port;
+                grid.appendChild(cell);
+            });
+        }
+
+        function updatePortGrid(result) {
+            const cell = document.getElementById(`port-cell-${result.port}`);
+            if (!cell) return;
+
+            const colors = {
+                open: 'bg-emerald-500 text-white',
+                closed: 'bg-red-500 text-white',
+                filtered: 'bg-amber-500 text-white'
+            };
+
+            cell.className = `h-6 rounded flex items-center justify-center text-xs font-mono transition-all duration-300 ${colors[result.state]}`;
+        }
+
+        function updateProgress() {
+            const progress = (currentPortIndex / portsToScan.length) * 100;
+            document.getElementById('progress-bar').style.width = progress + '%';
+            document.getElementById('progress-text').textContent = Math.round(progress) + '%';
+            document.getElementById('ports-scanned').textContent = currentPortIndex + ' ports scanned';
+
+            const open = scanResults.filter(r => r.state === 'open').length;
+            const closed = scanResults.filter(r => r.state === 'closed').length;
+            const filtered = scanResults.filter(r => r.state === 'filtered').length;
+
+            document.getElementById('ports-open').textContent = open + ' open';
+            document.getElementById('ports-closed').textContent = closed + ' closed';
+            document.getElementById('ports-filtered').textContent = filtered + ' filtered';
+        }
+
+        function addOpenPortToTable(result) {
+            const tbody = document.getElementById('open-ports-table');
+
+            if (tbody.children.length === 0 || tbody.children[0].textContent.includes('No open ports')) {
+                tbody.innerHTML = '';
+            }
+
+            const riskColors = { 'Critical': 'text-red-400', 'High': 'text-orange-400', 'Medium': 'text-yellow-400', 'Low': 'text-emerald-400', 'Unknown': 'text-slate-400' };
+
+            const row = document.createElement('tr');
+            row.className = 'hover:bg-slate-800/50 transition-colors';
+            row.innerHTML = `
+                <td class="p-3 font-mono text-cyan-400 text-xs">${result.port}</td>
+                <td class="p-3 text-slate-300 text-xs">${result.protocol}</td>
+                <td class="p-3 text-slate-300 text-xs">${result.service}</td>
+                <td class="p-3 text-slate-400 text-xs">${result.version}</td>
+                <td class="p-3 text-center"><span class="font-bold text-xs ${riskColors[result.risk] || 'text-slate-400'}">${result.risk}</span></td>
+                <td class="p-3 text-slate-500 text-xs font-mono truncate max-w-xs">${result.banner}</td>
+            `;
+
+            tbody.appendChild(row);
+        }
+
+        function updateSummary() {
+            const open = scanResults.filter(r => r.state === 'open').length;
+            const closed = scanResults.filter(r => r.state === 'closed').length;
+            const filtered = scanResults.filter(r => r.state === 'filtered').length;
+            const elapsed = ((Date.now() - scanStartTime) / 1000).toFixed(1);
+
+            document.getElementById('summary-open').textContent = open;
+            document.getElementById('summary-closed').textContent = closed;
+            document.getElementById('summary-filtered').textContent = filtered;
+            document.getElementById('summary-time').textContent = elapsed + 's';
+            document.getElementById('open-count-badge').textContent = open + ' found';
+        }
+
+        function updateFingerprint() {
+            const openPorts = scanResults.filter(r => r.state === 'open');
+            const container = document.getElementById('fingerprint');
+
+            if (openPorts.length === 0) {
+                container.innerHTML = '<div>No open ports detected. Target may be heavily filtered or offline.</div>';
+                return;
+            }
+
+            const osGuess = guessOS(openPorts);
+
+            container.innerHTML = `
+                <div><span class="text-slate-500">OS Guess:</span> <span class="text-cyan-400">${osGuess}</span></div>
+                <div><span class="text-slate-500">Open Port Count:</span> <span class="text-emerald-400">${openPorts.length}</span></div>
+                <div><span class="text-slate-500">Services Detected:</span> <span class="text-slate-300">${openPorts.map(p => p.service).join(', ')}</span></div>
+                <div><span class="text-slate-500">Uptime Estimate:</span> <span class="text-slate-300">${Math.floor(Math.random() * 30) + 1} days</span></div>
+                <div><span class="text-slate-500">Scan Method:</span> <span class="text-slate-300">${document.getElementById('scan-type').value.toUpperCase()}</span></div>
+            `;
+        }
+
+        function guessOS(openPorts) {
+            const ports = openPorts.map(p => p.port);
+            if (ports.includes(3389)) return 'Windows Server (RDP detected)';
+            if (ports.includes(22) && ports.includes(445)) return 'Linux/Unix (SSH + SMB)';
+            if (ports.includes(80) && ports.includes(3306)) return 'Linux Web Server (LAMP stack)';
+            if (ports.includes(53) && ports.includes(80)) return 'Network Appliance / Router';
+            return 'Unknown (insufficient data)';
+        }
+
+        function updateRecommendations() {
+            const openPorts = scanResults.filter(r => r.state === 'open');
+            const container = document.getElementById('port-recommendations');
+            const recs = [];
+
+            const highRisk = openPorts.filter(p => p.risk === 'Critical' || p.risk === 'High');
+            if (highRisk.length > 0) {
+                recs.push(`Close or restrict ${highRisk.length} high-risk ports: ${highRisk.map(p => p.port).join(', ')}`);
+            }
+
+            if (openPorts.some(p => p.port === 23)) {
+                recs.push('Telnet (port 23) is unencrypted — replace with SSH (port 22) immediately');
+            }
+
+            if (openPorts.some(p => p.port === 3389)) {
+                recs.push('RDP (port 3389) exposed to internet — enable Network Level Authentication and use VPN');
+            }
+
+            if (openPorts.some(p => [3306, 5432, 27017].includes(p.port))) {
+                recs.push('Database ports exposed — restrict to localhost or internal network only');
+            }
+
+            if (openPorts.some(p => p.service === 'FTP')) {
+                recs.push('FTP (port 21) transmits credentials in plaintext — use SFTP or FTPS instead');
+            }
+
+            if (recs.length === 0) {
+                recs.push('No critical issues detected. Continue monitoring for changes.');
+            }
+
+            recs.push('Implement host-based firewall (iptables/Windows Firewall) to limit exposure');
+            recs.push('Run authenticated scans for deeper vulnerability assessment');
+
+            container.innerHTML = recs.map(r => `<li class="flex items-start gap-2"><span class="text-cyan-400 mt-0.5">→</span>${r}</li>`).join('');
+        }
+    </script>
+</body>
+</html>
