@@ -1,0 +1,33 @@
+# 🔍 PORT-SCAN
+
+A browser-based network reconnaissance tool that demonstrates TCP handshake mechanics, service detection, and port scanning methodology.
+
+## 🚀 Live Demo
+
+https://adamanuhu-star.github.io/port-scan
+
+## 📊 Features
+
+- **Port Range Selection** — Common ports, web services, remote access, databases, or full range
+- **Scan Types** — SYN Stealth, TCP Connect, UDP scanning simulation
+- **Real-time Visualization** — Port grid lights up as scan progresses
+- **Service Fingerprinting** — Banner grabbing, version detection, OS guessing
+- **Risk Assessment** — Identifies high-risk exposed services
+- **Security Recommendations** — Hardening advice based on findings
+
+## 🛠️ Tech Stack
+
+- HTML5, Tailwind CSS, Vanilla JavaScript
+- No external dependencies
+- Simulated scanning environment for educational purposes
+
+## 🎯 Networking Concepts Demonstrated
+
+- **TCP Handshake:** SYN, SYN-ACK, ACK states and port states (open/closed/filtered)
+- **Service Detection:** Banner grabbing and version fingerprinting
+- **OS Fingerprinting:** Inferring operating system from open port patterns
+- **Network Security:** Identifying exposed services and attack surface
+
+## 📄 License
+
+MIT — Educational purposes
